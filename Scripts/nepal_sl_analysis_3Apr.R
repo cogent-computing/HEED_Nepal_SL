@@ -1,172 +1,31 @@
-library(ggplot2)
-library(dplyr)
-library(lubridate)
-library(readxl)
+#******************************************************************************************#
+# This is the script for analysis of data for all Nepal SL data                            #
+# Author: K Bhargava                                                                       #
+# Last updated on: 18th Jun 2020                                                           #
+#******************************************************************************************#
+
+#****************************************************************************************************#
+# Import packages
 library(tidyverse)
-library(stringr)
-library(rlang)
-library(readr)
-library(openxlsx)
+library(lubridate)
 library(wesanderson)
+library(here)
+#**********************************************************************************************#
 
-sl_all <- read.csv("~/OneDrive - Coventry University/HEED_analysis/Nepal Streetlights/Data/sl_all_raw.csv",
-          header = TRUE, stringsAsFactors = FALSE)
-sl_all$timestamp <- as.POSIXct(sl_all$timestamp, tz="GMT", origin="1970-01-01")
+#******************************************************************************************#
+# Set working directory - to later read hourly imputed and corrected data
+filepath <- "Data"
+plot_dir <- "Plots/Paper 7"
+#******************************************************************************************#
 
-#Remove duplicated rows
-sl_all <- distinct(sl_all)
-sl_back_up <- sl_all
-#################################################################################################
-############## Prior to pre-processing data, get the yield for the raw data #####################
+#******************************************************************************************#
+# Read hourly data - read imputed data later
+system_hourly <- read_csv(here(filepath,"raw_hourly_sl_data.csv"), col_names = TRUE)
+system_hourly <- as.data.frame(system_hourly[,seq_along(system_hourly)])
 
-#Convert data into hourly means to see how much data is missing
-hourlyMeans <- function(system_gather) {
-  #Hourly means can be calculated for AC consumption and PV power
-  system_hourly <- system_gather[system_gather$id=="PV_DC.coupled_W" | 
-                                   system_gather$id=="PV_power_W" |
-                                   system_gather$id=="Battery_power_W" |
-                                   system_gather$id=="Battery_watts_W" |
-                                   system_gather$id=="sysSocketLoad" | 
-                                   system_gather$id=="totalLoad" |
-                                   system_gather$id=="State_of_charge", ] %>%
-    group_by(streetlight, date, timeUse, id) %>%
-    summarise(value=mean(value,na.rm = TRUE))
-  system_hourly <- as.data.frame(system_hourly)
-  
-  #Calculate hourly values for discharged and charged energy by taking hourly differences
-  battery_charge <- system_gather[system_gather$id=="Charged_energy_kWh",]
-  battery_charge <- battery_charge[complete.cases(battery_charge), ]
-  #Extract hourly values by taking the last value for each hour 
-  battery_charge_hours <- battery_charge %>%
-    group_by(streetlight, date, timeUse, id) %>%
-    summarise(value = value[length(na.omit(value))])
-  battery_charge_hours <- as.data.frame(battery_charge_hours)
-  a <- diff(battery_charge_hours$value)
-  battery_charge_hours <- battery_charge_hours[-1,]
-  battery_charge_hours$value <- a
-  battery_charge_hours$value <- battery_charge_hours$value * 1000.0 #W
-  system_hourly <- rbind(system_hourly, battery_charge_hours)
-  
-  battery_discharge <- system_gather[system_gather$id=="Discharged_energy_kWh",]
-  battery_discharge <- battery_discharge[complete.cases(battery_discharge), ]
-  #Extract hourly values by taking the max value each hour 
-  battery_discharge_hours <- battery_discharge %>%
-    group_by(streetlight, date, timeUse, id) %>%
-    summarise(value = value[length(na.omit(value))])
-  battery_discharge_hours <- as.data.frame(battery_discharge_hours)
-  a <- diff(battery_discharge_hours$value)
-  battery_discharge_hours <- battery_discharge_hours[-1,]
-  battery_discharge_hours$value <- a
-  battery_discharge_hours$value <- battery_discharge_hours$value * 1000.0 #W
-  system_hourly <- rbind(system_hourly, battery_discharge_hours)
-}
-
-sl_write <- sl_back_up[,-7] #Remove load current
-sl_write$date <- date(sl_write$timestamp)
-sl_write$timeUse <- format(sl_write$timestamp, format="%H")
-sl_write <- gather(sl_write, "id", "value", c(3:9))
-
-#Get the hourly means
-system_hourly <- hourlyMeans(sl_write)
-sl_write <- spread(system_hourly, id, value)
-sl_write$timestamp <- as.POSIXct(paste(paste(sl_write$date, sl_write$timeUse), ":00:00",sep=""),
-                                 format="%Y-%m-%d %H:%M:%S", tz="GMT")
-
-#Replace NA values for charged and discharged energy with 0
-sl_write$Charged_energy_kWh[is.na(sl_write$Charged_energy_kWh)] <- 0
-sl_write$Discharged_energy_kWh[is.na(sl_write$Discharged_energy_kWh)] <- 0
-
-sl_write <- sl_write[,-c(2,3)] #Remove date and timeUse
-sl_write <- sl_write[, c(9,1:8)]
-colnames(sl_write) <- c("timestamp","streetlight","Battery_power_W",
-                        "Battery_watts_W", "Charged_energy_W",
-                        "Discharged_energy_W", "PV_DC_coupled_W",
-                        "PV_power_W", "State_of_charge_%")
-setwd("~/OneDrive - Coventry University/HEED_analysis/Nepal Streetlights/Data/")
-write.csv(sl_write, file="SL_all_raw_hourly.csv", row.names=FALSE)
-
-#### Reading in the hourly data for yield calculation ###############
-sl_write <- read.csv(file="SL_all_raw_hourly.csv", header=TRUE, stringsAsFactors = FALSE)
-sl_write$timestamp <- as.POSIXct(sl_write$timestamp, tz="GMT", origin="1970-01-01")
-
-### For each streetlight see what check for missing data - 1 July 2019 to 19 March 2020
-july_2019 <- seq(as.Date("2019-07-01"), as.Date("2019-07-31"), by="days")
-aug_2019 <- seq(as.Date("2019-08-01"), as.Date("2019-08-31"), by="days")
-sep_2019 <- seq(as.Date("2019-09-01"), as.Date("2019-09-30"), by="days")
-oct_2019 <- seq(as.Date("2019-10-01"), as.Date("2019-10-31"), by="days")
-nov_2019 <- seq(as.Date("2019-11-01"), as.Date("2019-11-30"), by="days")
-dec_2019 <- seq(as.Date("2019-12-01"), as.Date("2019-12-31"), by="days")
-jan_2020 <- seq(as.Date("2020-01-01"), as.Date("2020-01-31"), by="days")
-feb_2020 <- seq(as.Date("2020-02-01"), as.Date("2020-02-29"), by="days")
-mar_2020 <- seq(as.Date("2020-03-01"), as.Date("2020-03-19"), by="days")
-all_days <- c(july_2019, aug_2019, sep_2019, oct_2019, nov_2019, dec_2019,
-              jan_2020, feb_2020, mar_2020)
-all_hours <- format( seq.POSIXt(as.POSIXct(Sys.Date()), as.POSIXct(Sys.Date()+1), 
-                                by = "1 hour"), "%H", tz="GMT")
-all_hours <- all_hours[-25]
-
-sl_write$date <- date(sl_write$timestamp)
-sl_write$timeUse <- hour(sl_write$timestamp)
-
-#Number of on hours per day for each streetlight id and each variable
-sl_gather <- gather(sl_write, "variable", "value", 3:9)
-sl_on_hours <- sl_gather %>%
-  group_by(streetlight, date, variable) %>%
-  summarise(onHours = length(na.omit(value)))
-sl_on_hours <- as.data.frame(sl_on_hours)
-#Once we have hours on for each available day, look for missing dates
-sl_on_hours2 <- data.frame()
-for(i in 1:length(unique(sl_on_hours$streetlight))) {
-  df <- sl_on_hours[sl_on_hours$streetlight == unique(sl_on_hours$streetlight)[i], ]
-  for(j in 1:length(unique(df$variable))) {
-    df_sub <- df[df$variable == unique(df$variable)[j], ]
-    for(k in 1:length(all_days)) {
-      if(!(all_days[k] %in% df_sub$date)) {
-        df_sub <- rbind(df_sub, data.frame(streetlight=df_sub$streetlight[1], date=all_days[k],
-                                           variable=df_sub$variable[1], onHours=0))
-      }
-    }
-    sl_on_hours2 <- rbind(sl_on_hours2, df_sub)
-  }
-}
-sl_on_hours2 <- sl_on_hours2[order(sl_on_hours2$date),]
-sl_on_hours2$month <- as.character(month(sl_on_hours2$date,label=TRUE, abbr=TRUE))
-
-sl_on_hours2$date <- as.Date(sl_on_hours2$date)
-sl_on_hours2$streetlight <- as.factor(sl_on_hours2$streetlight)
-sl_on_hours2$variable <- as.factor(sl_on_hours2$variable)
-
-#Plot yield map for yield - yield calculated as % hours of total per day i.e. 24
-sl_on_hours2$yield <- sl_on_hours2$onHours * 100.0 / 24.0
-sl_on_hours2$id2 <- paste(as.character(sl_on_hours2$streetlight), 
-                          as.character(sl_on_hours2$variable))
-#Plotting a heat map for CPE
-pal <- wes_palette("Zissou1", 100, type = "continuous")
-sl_yield <- sl_on_hours2
-sl_yield$variable <- as.character(sl_yield$variable)
-sl_yield <- sl_yield[sl_yield$variable=="PV_power_W",]
-sl_yield$id2 <- substr(sl_yield$id2, 1, 3)
-sl_yield %>%
-  ggplot(aes(date, id2)) + geom_tile(aes(fill = yield)) +
-  scale_fill_gradientn(colours = pal) + 
-  xlab("X axis") +
-  ylab("Y axis") +
-  labs(title="Yield for Nepal Streetlights: 01 Jul'19 - 19 Mar'20" , 
-       y="Streetlight",
-       x = "Day of study",
-       fill="Yield") + 
-  theme(axis.text.x = element_text(size = 8), 
-        axis.text.y = element_text(size=6),
-        plot.title = element_text(size=10))
-ggsave("../Plots/Paper4/version3/yield_raw.png")
-#################################################################################################
 
 #################################################################################################
 ########### Cleaning data and calculating system and socket load and light load #################
-#Correcting charged and discharged energy
-sl_all$Charged_energy_kWh <- ifelse(sl_all$Battery_power_W<0, 0, sl_all$Battery_power_W)
-sl_all$Discharged_energy_kWh <- ifelse(sl_all$Battery_power_W>0, 0, sl_all$Battery_power_W)  
-
 #Light load
 sl_all$Light_load_W <- ifelse(sl_all$Battery_watts_W<0, sl_all$Battery_watts_W, 0)
 
