@@ -146,7 +146,7 @@ write.csv(sl_nepal2, file=here(output_directory,"sl_all_raw_oct_mar.csv"), row.n
 #SL5 <- 2019-08-28 to 2020-03-19 - NA; SL7 <- 2019-10-16 to 2020-01-28 and 2020-03-05 to 2020-03-19
 
 #*************************************************************************************************************#
-# Set working directory to read all files from 30th Nov 2019 to 30th April 2020
+# Set working directory to read all files from 30th Nov 2019 to 19 March 2020
 filepath <- "Data/Oct2019_Mar2020"
 file_list <- list.files(here(filepath))
 sl_nepal3 <- data.frame()
@@ -198,17 +198,56 @@ write.csv(sl_nepal3, file=here(output_directory,"sl_all_raw_rem_mar.csv"), row.n
 #*************************************************************************************************************#
 
 #*************************************************************************************************************#
+# Set working directory to read all subsequent data from 19 March 2020 onwards
+filepath <- "Data/2020"
+file_list <- list.files(here(filepath))
+sl_nepal4 <- data.frame()
+for(k in seq_along(file_list)) {
+  headers <- read_csv(here(filepath,file_list[k]), col_names = FALSE, na="..", n_max = 3)
+  headers[is.na(headers)] <- ""
+  column_labels <- headers %>% summarize_all(str_c, collapse = " ")
+  headers = unname(unlist(column_labels[1,]))
+  headers <- sub("\\[.*\\] ", "", headers)
+  
+  df <- read_csv(here(filepath,file_list[k]), col_names = headers, na="..", skip = 3)
+  df <- as.data.frame(df)
+  df <- df[,seq_along(df)]
+  
+  df <- df[, c(headers[1], headers[which(grepl("System overview PV - DC-coupled", headers, fixed=TRUE) | 
+                                           grepl("System overview Battery Power", headers, fixed=TRUE) | 
+                                           grepl("Solar Charger PV current", headers, fixed=TRUE) |
+                                           grepl("Solar Charger PV voltage", headers, fixed=TRUE) |
+                                           grepl("Solar Charger Load current", headers, fixed=TRUE) |
+                                           grepl("Solar Charger Battery watts", headers, fixed=TRUE) |
+                                           grepl("Battery Monitor State of charge", headers, fixed=TRUE) )])] 
+  df <- df %>% mutate("Solar.Charger.PV.power.W"=`Solar Charger PV voltage ` * `Solar Charger PV current `, 
+                      streetlight=substr(file_list[k],6,8))
+  df <- df[,-c(5,6)]
+  
+  # Rename and re-arrange the columns
+  colnames(df) <- c("timestamp","Battery.Monitor.State.of.charge..","Solar.Charger.Battery.watts.W",
+                    "Solar.Charger.Load.current.A", "System.overview.PV...DC.coupled.W", 
+                    "System.overview.Battery.Power.W","Solar.Charger.PV.power.W","streetlight")
+  df <- df[,c(1,8,2,3,4,6,5,7)]
+  
+  sl_nepal4 <- rbind(sl_nepal4, df)
+}
+write.csv(sl_nepal4, file=here(output_directory,"sl_all_raw_2020.csv"), row.names=FALSE)
+#*************************************************************************************************************#
+
+#*************************************************************************************************************#
 # Stitch all data together together
 sl_nepal <- read.csv(here(output_directory,"sl_all_raw_jul_oct.csv"), stringsAsFactors =FALSE, header=TRUE)
 sl_nepal2 <- read.csv(here(output_directory,"sl_all_raw_oct_mar.csv"), stringsAsFactors =FALSE, header=TRUE)
 sl_nepal3 <- read.csv(here(output_directory,"sl_all_raw_rem_mar.csv"), stringsAsFactors =FALSE, header=TRUE)
+sl_nepal4 <- read.csv(here(output_directory,"sl_all_raw_2020.csv"), stringsAsFactors =FALSE, header=TRUE)
 
 sl_all <- data.frame()
-sl_all <- rbind(sl_all, sl_nepal, sl_nepal2, sl_nepal3)
+sl_all <- rbind(sl_all, sl_nepal, sl_nepal2, sl_nepal3, sl_nepal4)
 sl_all <- distinct(sl_all)
-# Subset data from 1st July
+# Subset data from 1st July 2019 to 31st March 2020
 sl_all <- sl_all %>% mutate(timestamp=as.POSIXct(timestamp, origin="1970-01-01",tz="GMT"),date=date(timestamp))
-sl_all <- sl_all[sl_all$date>="2019-07-01",]
+sl_all <- sl_all[sl_all$date>="2019-07-01" & sl_all$date<="2020-03-31",]
 write.csv(sl_all, file=here(output_directory,"sl_all_raw.csv"), row.names=FALSE)
 #*************************************************************************************************************#
 

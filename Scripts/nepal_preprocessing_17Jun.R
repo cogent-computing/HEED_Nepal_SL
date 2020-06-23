@@ -2,24 +2,19 @@
 # This is the script for pre-processing data from all Nepal SL to convert to hourly data   #
 # analyse yield of hourly data and explore imputation techniques                           #
 # Author: K Bhargava                                                                       #
-# Last updated on: 17th June 2020                                                          #
+# Last updated on: 22nd June 2020                                                          #
 #******************************************************************************************#
 
 #******************************************************************************************#
 # Importing libraries
 library(tidyverse)
 library(lubridate)
-library(mice) # for mice imputation
 library(wesanderson)
-library(timeSeries) # for converting data frame into time series
-library("ggpubr")
 library("imputeTS") # for na_seadec imputation
 library(mgcv) # for gam model-based imputation
-library(simputation) # For impute_knn, impute_rf
-library(randomForest) #For random Forest functions used in the back end by impute_rf
-library(missForest)
 library(xts)
-library(MLmetrics)
+library(MLmetrics) #for RMSE
+library(timeDate) #for skewness
 library(here)
 #******************************************************************************************#
 
@@ -49,28 +44,26 @@ weather_data <- weather_data[,c(1,3,4,2)] # Rearrange columns
 #******************************************************************************************#
 
 #******************************************************************************************#
-# Plot number of values per hour for each day
+# Plot yield per hour for each day - freq of data collection changes in Oct 2019
 sl_all <- gather(sl_nepal, "id", "value", c(3:8,12:13))
-sl_qual <- sl_all %>% group_by(streetlight, date, timeUse, id) %>% summarise(count = length(na.omit(value)))
+sl_qual <- sl_all %>% group_by(streetlight, date, timeUse, id) %>% summarise(count = length(unique(timestamp)))
 sl_qual <- as.data.frame(sl_qual)
-sl_qual <- sl_qual %>% mutate(count2 = ifelse(count<100, count, 100))
-
-# Calculate hourly yield for each day and SL if 60 readings expected every hour
-pal <- wes_palette("Zissou1", 400, type = "continuous")
+sl_qual <- sl_qual %>% mutate(count2 = ifelse(count<100, count, 100),
+                              yield=ifelse(date>="2019-10-15" & timeUse>=12, count*100/60, count*100/4),
+                              yield2 =ifelse(yield>100, 100, yield))
+pal <- wes_palette("Zissou1", 100, type = "continuous")
 ggplot(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[1:4] & sl_qual$id=="System.overview.Battery.Power.W",],
-       aes(date, timeUse)) + facet_wrap(~streetlight) + geom_tile(aes(fill = count2)) + 
-  scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100), labels=c("0","25","50","75","100+")) + 
-  scale_y_continuous(breaks=seq(0,24,by=2)) + xlab("X axis") + ylab("Y axis") + 
-  labs(title="Number of readings per hour for Nepal SL: 1 Jul'19 - 19 Mar'20",y="Time of day",x = "Day of study",
-       fill="Readings/hour")
-ggsave(here(plot_dir,"numReads_hourly1.png"))
+       aes(date, timeUse)) + facet_wrap(~streetlight, nrow=2) + geom_tile(aes(fill = yield2)) + 
+  scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + scale_y_continuous(breaks=seq(0,24,by=2)) + 
+  xlab("X axis") + ylab("Y axis") + labs(title="Yield per hour for Nepal streetlights: 1 Jul'19 - 31 Mar'20", 
+                                         y="Time of day",x = "Day of study", fill="Yield (%)")
+ggsave(here(plot_dir,"yield_hourly1.png"))
 ggplot(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[5:7] & sl_qual$id=="System.overview.Battery.Power.W",],
-       aes(date, timeUse)) + facet_wrap(~streetlight, nrow=2) + geom_tile(aes(fill = count2)) + 
-  scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100), labels=c("0","25","50","75","100+")) + 
-  scale_y_continuous(breaks=seq(0,24,by=2)) + xlab("X axis") + ylab("Y axis") + 
-  labs(title="Number of readings per hour for Nepal SL: 1 Jul'19 - 19 Mar'20",y="Time of day",x = "Day of study",
-       fill="Readings/hour")
-ggsave(here(plot_dir,"numReads_hourly2.png"))
+       aes(date, timeUse)) + facet_wrap(~streetlight, nrow=2) + geom_tile(aes(fill = yield2)) + 
+  scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + scale_y_continuous(breaks=seq(0,24,by=2)) + 
+  xlab("X axis") + ylab("Y axis") + labs(title="Yield per hour for Nepal streetlights: 1 Jul'19 - 31 Mar'20", 
+                                         y="Time of day",x = "Day of study", fill="Yield (%)")
+ggsave(here(plot_dir,"yield_hourly2.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -80,8 +73,8 @@ system_hourly <- as.data.frame(system_hourly)
 system_hourly <- spread(system_hourly, id, value)
 system_hourly[is.na(system_hourly)] <- NA
 
-# For each streetlight see what check for missing data - 1 July 2019 to 19 March 2020 = 263 days
-all_days <- seq(as.Date("2019-07-01"), as.Date("2020-03-19"), by="days")
+# For each streetlight see what check for missing data - 1 July 2019 to 31 March 2020 = 275 days
+all_days <- seq(as.Date("2019-07-01"), as.Date("2020-03-31"), by="days")
 all_hours <- format(seq.POSIXt(as.POSIXct(Sys.Date()), as.POSIXct(Sys.Date()+1),by = "1 hour"), "%H", tz="GMT")
 all_hours <- as.numeric(all_hours[-25])
 
@@ -185,43 +178,43 @@ plotTypical <- function(df) {
 plotTypical(system_typical[system_typical$streetlight=="SL1",]) + 
   geom_line(aes(y = Battery.Monitor.State.of.charge../400, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
   scale_y_continuous(sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL1 power profile for a typical day from 01 Jul'19 to 19 Mar'20")
+  labs(title="Actual Nepal SL1 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"typical_day_sl1.png"))
 
 plotTypical(system_typical[system_typical$streetlight=="SL2",]) + 
   geom_line(aes(y = Battery.Monitor.State.of.charge../400, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
   scale_y_continuous(sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL2 power profile for a typical day from 01 Jul'19 to 19 Mar'20")
+  labs(title="Actual Nepal SL2 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"typical_day_sl2.png"))
 
 plotTypical(system_typical[system_typical$streetlight=="SL3",]) + 
   geom_line(aes(y = Battery.Monitor.State.of.charge../455, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
   scale_y_continuous(sec.axis = sec_axis(~.*455, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL3 power profile for a typical day from 01 Jul'19 to 19 Mar'20")
+  labs(title="Actual Nepal SL3 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"typical_day_sl3.png"))
 
 plotTypical(system_typical[system_typical$streetlight=="SL4",]) + 
   geom_line(aes(y = Battery.Monitor.State.of.charge../400, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
   scale_y_continuous(sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL4 power profile for a typical day from 01 Jul'19 to 19 Mar'20")
+  labs(title="Actual Nepal SL4 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"typical_day_sl4.png"))
 
 plotTypical(system_typical[system_typical$streetlight=="SL5",]) + 
   geom_line(aes(y = Battery.Monitor.State.of.charge../500, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
   scale_y_continuous(sec.axis = sec_axis(~.*500, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL5 power profile for a typical day from 01 Jul'19 to 19 Mar'20")
+  labs(title="Actual Nepal SL5 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"typical_day_sl5.png"))
 
 plotTypical(system_typical[system_typical$streetlight=="SL6",]) + 
   geom_line(aes(y = Battery.Monitor.State.of.charge../500, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
   scale_y_continuous(sec.axis = sec_axis(~.*500, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL6 power profile for a typical day from 01 Jul'19 to 19 Mar'20")
+  labs(title="Actual Nepal SL6 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"typical_day_sl6.png"))
 
 plotTypical(system_typical[system_typical$streetlight=="SL7",]) + 
   geom_line(aes(y = Battery.Monitor.State.of.charge../500, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
   scale_y_continuous(sec.axis = sec_axis(~.*500, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL7 power profile for a typical day from 01 Jul'19 to 19 Mar'20")
+  labs(title="Actual Nepal SL7 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"typical_day_sl7.png"))
 #******************************************************************************************#
 
@@ -234,6 +227,15 @@ system <- system %>% mutate(month = as.character(month(date, label=TRUE, abbr=TR
                             month2 = factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                                             labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
 
+# Plot hourly values against time: SL1 in Oct 2019
+subSystem <- system[system$streetlight=="SL1" &(system$id=="Solar.Charger.PV.power.W" | system$id=="Potential_PV_power_W"|
+             system$id=="System.overview.Battery.Power.W" | system$id=="Solar.Charger.Battery.watts.W"),]
+subSystem <- spread(subSystem, id, value)
+colnames(subSystem) <- c(colnames(subSystem)[1:8], "PV.power.W", colnames(subSystem)[10])
+subSystem <- gather(subSystem, "id", "value", 7:10)
+ggplot(subSystem[subSystem$month=="Oct",], aes(timestamp, value)) + facet_wrap(~id) + geom_line() + 
+  labs(x="Date", y="Energy (Wh)", title = "Energy profile of SL1 in Nepal in Oct 2019")
+
 # Plot hourly values against time
 plotHourly <- function(df) {
   ggplot(df[(df$id=="Solar.Charger.PV.power.W"|df$id=="Potential_PV_power_W"|df$id=="System.overview.Battery.Power.W"),], 
@@ -242,31 +244,31 @@ plotHourly <- function(df) {
     labs(x="Day of study", y="Energy (Wh)", color="Variable", linetype="Variable")
 }
 plotHourly(system[system$streetlight=="SL1",]) + 
-  labs(title = "Energy profile of SL1 in Nepal: 01 Jul'19 to 19 Mar'20")
+  labs(title = "Energy profile of SL1 in Nepal: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl1.png"))
 
 plotHourly(system[system$streetlight=="SL2",]) + 
-  labs(title = "Energy profile of SL2 in Nepal: 01 Jul'19 to 19 Mar'20")
+  labs(title = "Energy profile of SL2 in Nepal: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl2.png"))
 
 plotHourly(system[system$streetlight=="SL3",]) + 
-  labs(title = "Energy profile of SL3 in Nepal: 01 Jul'19 to 19 Mar'20")
+  labs(title = "Energy profile of SL3 in Nepal: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl3.png"))
 
 plotHourly(system[system$streetlight=="SL4",]) + 
-  labs(title = "Energy profile of SL4 in Nepal: 01 Jul'19 to 19 Mar'20")
+  labs(title = "Energy profile of SL4 in Nepal: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl4.png"))
 
 plotHourly(system[system$streetlight=="SL5",]) + 
-  labs(title = "Energy profile of SL5 in Nepal: 01 Jul'19 to 19 Mar'20")
+  labs(title = "Energy profile of SL5 in Nepal: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl5.png"))
 
 plotHourly(system[system$streetlight=="SL6",]) + 
-  labs(title = "Energy profile of SL6 in Nepal: 01 Jul'19 to 19 Mar'20")
+  labs(title = "Energy profile of SL6 in Nepal: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl6.png"))
 
 plotHourly(system[system$streetlight=="SL7",]) + 
-  labs(title = "Energy profile of SL7 in Nepal: 01 Jul'19 to 19 Mar'20")
+  labs(title = "Energy profile of SL7 in Nepal: 01 Jul'19 to 31 Mar'20")
 ggsave(here(plot_dir,"energy_profile_sl7.png"))
 #******************************************************************************************#
 
@@ -291,9 +293,9 @@ ggsave(here(plot_dir,"discharged_energy.png"))
 #******************************************************************************************#
 #******************************************************************************************#
 # Get full data days for all SL
-df <- system_hourly[,c(1,2,3,5,10,11,12,13,14,16,17)]
+df <- system_hourly[,c(1,2,3,4,5,6,7,8,9,10,13)]
 df <- df[df$na_count==0,-11]
-sl_on_hours <- df %>% group_by(streetlight, date) %>% summarise(onHours = length(PV.power.W))
+sl_on_hours <- df %>% group_by(streetlight, date) %>% summarise(onHours = length(System.overview.Battery.Power.W))
 sl_on_hours <- as.data.frame(sl_on_hours[sl_on_hours$onHours==24,])
 # Consider all full days
 full_data <- data.frame()
@@ -303,18 +305,128 @@ for(i in seq_along(unique(sl_on_hours$streetlight))) {
   x <- x[x$date %in% days,]
   full_data <- rbind(full_data, x)
 }
+full_data <- full_data[1:13416,]
 
-# Create a copy of full data and replace 20% data with NA - in system hourly we have 13% data missing for all
-# variables except 24% for AC consumption
+# Create a copy of full data and replace 20% data with NA 
 incomplete_data <- data.frame()
 for(i in seq_along(unique(full_data$streetlight))) {
   df_sub <- full_data[full_data$streetlight == unique(full_data$streetlight)[i],]
   n <- length(df_sub$streetlight)
   ind <- sample( c(1:n), floor(n/5))
-  df_sub[ind,c("Battery.Monitor.Voltage.V","PV.power.W","Solar.Charger.Battery.watts.W","Solar.Charger.Load.current.A",
-               "System.overview.AC.Consumption.L1.W","System.overview.Battery.Power.W")] <- NA
+  df_sub[ind,c("Battery.Monitor.State.of.charge..","Charged.energy.W","Discharged.energy.W",
+               "Solar.Charger.Battery.watts.W", "Solar.Charger.Load.current.A", 
+               "Solar.Charger.PV.power.W","System.overview.Battery.Power.W")] <- NA
   incomplete_data <- rbind(incomplete_data, df_sub)
 }
 #******************************************************************************************#
 
 # Try different imputation techniques and compare performance using RMSE and MAPE metrics
+
+#******************************************************************************************#
+# Imputation using na_seadec owing to seasonality - works on univariate time series
+methodImpute <- c("random", "mean", "locf", "interpolation", "ma", "kalman")
+# Impute missing values for SoC, Charged energy, Discharged energy, Battery watts, Load current, PV power, Battery power
+variables <- c("Battery.Monitor.State.of.charge..","Charged.energy.W","Discharged.energy.W",
+               "Solar.Charger.Battery.watts.W", "Solar.Charger.Load.current.A", 
+               "Solar.Charger.PV.power.W","System.overview.Battery.Power.W")
+na_seadec_imputedData <- data.frame()
+for(k in seq_along(variables)) {
+  x <- incomplete_data[c("streetlight","date","timeUse",variables[k])]
+  for(i in seq_along(unique(x$streetlight))) {
+    df <- x[x$streetlight == unique(x$streetlight)[i], ]
+    
+    # Convert data frame into a time series using xts to serve as input to na_seadec function
+    # For this data, seasonality is 1 day with a reading every hour
+    df.ts <- df[,-1]
+    df.ts <- spread(df.ts, timeUse, variables[k])
+    df.ts <- xts(df.ts[,-1], order.by=as.Date(df.ts[,1], "%Y-%m-%d"))
+    
+    # Impute data using different functions of na_seadec and bind to df
+    for(j in seq_along(methodImpute)) {
+      df1 <- as.data.frame(na_seadec(df.ts, algorithm=methodImpute[j],find_frequency=TRUE))
+      df1 <- df1 %>% mutate(date=row.names(df1))
+      df1 <- gather(df1, "timeUse", "value", 1:24)
+      df1[is.na(df1)] <- 0
+      df1 <- df1[order(df1$date),]
+      df <- cbind(df, df1$value)
+    }
+    colnames(df) <- c(colnames(df)[1:3],paste(variables[k],"original",sep="_"),
+                      paste(variables[k],methodImpute,sep="_"))
+    df <- gather(df, "variable","value",4:10)
+    
+    # Bind data for all SL
+    na_seadec_imputedData <- rbind(na_seadec_imputedData, df)
+  }
+}
+na_seadec_imputedData <- spread(na_seadec_imputedData, variable, value)
+na_seadec_imputedData <- na_seadec_imputedData %>% 
+  mutate(Potential.PV.power.W = incomplete_data$Potential_PV_power_W,
+         month = as.character(lubridate::month(date, label=TRUE, abbr=TRUE)),
+         timestamp = as.POSIXct(paste(date, ifelse(timeUse<10, paste("0",timeUse,":00:00",sep=""), 
+                                                   paste(timeUse,":00:00",sep="")), sep=" "), origin="1970-01-01",tz="GMT"),
+         month2 = factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
+                         labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
+write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_test_imputed_data.csv"), row.names=FALSE)
+
+# Calculating RMSE to get performance of na_seadec approach for each SL
+na_seadec_imputedData <- na_seadec_imputedData %>%
+  mutate(Battery.Monitor.State.of.charge..=full_data$Battery.Monitor.State.of.charge..,
+         Charged.energy.W=full_data$Charged.energy.W, Discharged.energy.W=full_data$Discharged.energy.W,
+         Solar.Charger.Battery.watts.W=full_data$Solar.Charger.Battery.watts.W,
+         Solar.Charger.Load.current.A=full_data$Solar.Charger.Load.current.A,
+         Solar.Charger.PV.power.W=full_data$Solar.Charger.PV.power.W, 
+         System.overview.Battery.Power.W=full_data$System.overview.Battery.Power.W)
+# Subset data where original values are na
+na_seadec_sub <- na_seadec_imputedData[is.na(na_seadec_imputedData$Battery.Monitor.State.of.charge.._original),]
+# Performance considering the sub set
+perf_na_seadec_sub <- na_seadec_sub %>% group_by(streetlight) %>%
+  summarise_at(vars(matches("Battery.Monitor.State.of.charge.._")), ~RMSE(.x, Battery.Monitor.State.of.charge..)) %>% 
+  bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
+              summarise_at(vars(matches("Solar.Charger.Battery.watts.W_")), ~RMSE(.x, Solar.Charger.Battery.watts.W))) %>%
+  bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
+              summarise_at(vars(matches("Solar.Charger.Load.current.A_")), ~RMSE(.x, Solar.Charger.Load.current.A))) %>% 
+  bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
+              summarise_at(vars(matches("Solar.Charger.PV.power.W_")), ~RMSE(.x, Solar.Charger.PV.power.W))) %>%
+  bind_cols(na_seadec_sub %>% group_by(streetlight) %>% 
+              summarise_at(vars(matches("System.overview.Battery.Power.W_")), ~RMSE(.x, System.overview.Battery.Power.W)))
+# Remove streetlight columns that are redundant and original data
+perf_na_seadec_sub <- perf_na_seadec_sub[,-c(7,9,15,17,23,25,31,33,39)]
+perf_na_seadec_sub <- gather(perf_na_seadec_sub, id, value, 2:31)
+ggplot(perf_na_seadec_sub[perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$id)[c(1:6)],], aes(id, value)) + 
+  facet_wrap(~streetlight) + geom_bar(stat="identity", width=.3, position = "dodge") + 
+  theme(axis.text.x = element_text(angle=45)) + scale_x_discrete(labels=c("Interpolation","Kalman","LOCF","MA","Mean",
+                            "Random")) + labs(y="SoC (%)",x="na_seadec approach", title="RMSE for SoC using na_seadec")
+
+ggplot(perf_na_seadec_sub[perf_na_seadec_sub$streetlight=="SL3" & perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$id)[c(7:12,19:30)],], aes(id, value)) + 
+  geom_bar(stat="identity", width=.3, position = "dodge") + 
+  scale_x_discrete(labels=c("Solar_battery_power_interpolation","Solar_battery_power_kalman","Solar_battery_power_LOCF",
+                            "Solar_battery_power_ma","Solar_battery_power_mean","Solar_battery_power_random",
+                            "PV_power_interpolation","PV_power_kalman","PV_power_LOCF","PV_power_ma",
+                            "PV_power_mean","PV_power_random","System_battery_power_interpolation",
+                            "System_battery_power_kalman","System_battery_power_LOCF","System_battery_power_ma",
+                            "System_battery_power_mean","System_battery_power_random")) +
+  theme(axis.text.x = element_text(angle=45)) + labs(y="RMSE (W)",x="na_seadec approach", title="RMSE using na_seadec")
+
+ggplot(perf_na_seadec_sub[perf_na_seadec_sub$id %in% unique(perf_na_seadec_sub$id)[c(13:18)],], aes(id, value)) + 
+  facet_wrap(~streetlight) + geom_bar(stat="identity", width=.3, position = "dodge") + 
+  theme(axis.text.x = element_text(angle=45)) + scale_x_discrete(labels=c("Interpolation","Kalman","LOCF","MA","Mean",
+                            "Random")) + labs(y="RMSE (A)",x="na_seadec approach", title="RMSE for Load current using na_seadec")
+
+# Compute statistics for original and imputed data
+na_seadec_sub <- gather(na_seadec_sub, id, value, c(4:52,56:62))
+stats_na_seadec_sub <- na_seadec_sub %>% group_by(streetlight, id) %>%
+  summarise(mean = mean(value, na.rm=TRUE), median = median(value, na.rm=TRUE), sd = sd(value, na.rm=TRUE),
+            skew = skewness(value, na.rm=TRUE), kurt = kurtosis(value, na.rm=TRUE))
+stats_na_seadec_sub <- as.data.frame(stats_na_seadec_sub)  
+stats_na_seadec_sub <- stats_na_seadec_sub[complete.cases(stats_na_seadec_sub),]
+stats_na_seadec_sub <- stats_na_seadec_sub %>% mutate(mean=round(mean,2), median=round(median,2),
+                                                      sd=round(sd,2), skew=round(skew,2), kurt=round(kurt,2))
+stats_na_seadec_sub <- gather(stats_na_seadec_sub, "variable", "value", 3:7)
+ggplot(stats_na_seadec_sub[stats_na_seadec_sub$streetlight=="SL2" & stats_na_seadec_sub$variable=="sd",], 
+       aes(id, abs(value))) + geom_bar(stat="identity", width=.3, position = "dodge")  + 
+  theme(axis.text.x = element_text(angle=90))
+
+# Plot data to check mapping
+ggplot(na_seadec_sub[na_seadec_sub$streetlight=="SL1" & na_seadec_sub$id==unique(na_seadec_sub$id)[c(44,56)],], 
+       aes(timestamp, value, color=id)) + geom_line() + theme(legend.position = "bottom")
+
