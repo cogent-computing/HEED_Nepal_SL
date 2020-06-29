@@ -163,25 +163,84 @@ na_seadec_imputedData <- na_seadec_interpolation %>%
          Solar.Charger.PV.power.W_interpolation=ifelse(Solar.Charger.PV.power.W_interpolation<0,0,
                          Solar.Charger.PV.power.W_interpolation))
  
-# Plot box plots for socket and system load to estimate the system load and subtract
+# Plot box plots for socket and system load to estimate the system load
 # Subtract hourly values as they are needed for typical day plots
-ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL1",], 
+systemLoad_day <- list(c(7.6,7.6,7,7,8,7,7,7.2,7.4),
+                       c(7,6.5,6.5,7,7,6.6,6.7,6.8,7.2),
+                       c(2.8,1.2,1.5,3.3,3.2,2.7,2.7,0.4,4.2),
+                       c(1.6,1.5,1.3,0.3,2,2.7,0.5,0.5,0.5),
+                       c(3.5,7.4),
+                       c(3.6,3.1,3.2,3.3,3.2,3.3,3.4,3.5,3.7),
+                       c(0,0,10,0,0,0,0,0,0)) # For SL1 to SL7 between 7 to 18 hours 
+systemLoad_eve <- list(c(9,9,8.75,7.8,8.2,8.3,8.3,8.5,8.2),
+                       c(8.5,8.5,8.2,8.2,7.8,7.8,7.75,7.9,8),
+                       c(4.5,4.5,4.2,4.2,4.2,4,4,1.5,2.8),
+                       c(3,2.7,3.7,2.7,4.3,4.4,2.5,2.5,2.5),
+                       c(4,7.25),
+                       c(4.7,5,4.9,4.8,4.8,5.5,5,5.2,5),
+                       c(0,0,10,0,0,0,0,0,0)) # For SL1 to SL7 between 19 to 6 hours
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Jul",], 
        aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot() +
-  scale_y_continuous(limits = c(0,20), breaks=seq(0,20,2))
-systemLoad_day <- c(7.8, 7.6, 3.3, 1.75, 4.5, 3.5, 0) #Between 6am and 5pm
-systemLoad_eve <- c(8.4, 8.2, 4, 2.75, 4.5, 5.0, 0) # Between 5pm and 6am
+  scale_y_continuous(breaks=seq(-50,200,10), limits=c(-50,200))
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Aug",], 
+       aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot() +
+  scale_y_continuous(breaks=seq(-50,200,10), limits=c(-50,200))
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Sep",], 
+       aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot() +
+  scale_y_continuous(breaks=seq(-50,200,10), limits=c(-50,200))
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Oct",], 
+       aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot()  +
+  scale_y_continuous(breaks=seq(0,20,1), limits=c(0,20))
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Nov",], 
+       aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot()   +
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1))
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Dec",], 
+       aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot()  +
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1))
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Jan",], 
+       aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot()  +
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1))
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Feb",], 
+       aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot()   +
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1))
+ggplot(na_seadec_imputedData[na_seadec_imputedData$streetlight=="SL7" &
+                               na_seadec_imputedData$month=="Mar",], 
+       aes(as.factor(timeUse), System.socket.load.W_interpolation)) + geom_boxplot()  +
+  scale_y_continuous(breaks=seq(0,1,0.1), limits=c(0,1))
+
 na_seadec_correctedData <- data.frame()
 for(i in seq_along(unique(na_seadec_imputedData$streetlight))) {
-  df <- na_seadec_imputedData[na_seadec_imputedData$streetlight==
+  x <- na_seadec_imputedData[na_seadec_imputedData$streetlight==
                                 unique(na_seadec_imputedData$streetlight)[i],]
   
-  # Calculate socket load by removing the estimated system load
-  df <- df %>% mutate(Socket.load.W_interpolation=ifelse(timeUse>=6 & timeUse<=17,
-                System.socket.load.W_interpolation-systemLoad_day[i],
-                System.socket.load.W_interpolation-systemLoad_eve[i]),
-                Socket.load.W_original=ifelse(timeUse>=6 & timeUse<=17,
-                System.socket.load.W_original-systemLoad_day[i],
-                System.socket.load.W_original-systemLoad_eve[i]))
+  # Calculate socket load by removing the estimated system load 
+  # For SL7 in July and Aug, socket load is positive system and socket load
+  df <- data.frame()
+  for(j in seq_along(unique(x$month))) {
+    df_sub <- x[x$month==unique(x$month)[j],]
+    df_sub <- df_sub %>% 
+      mutate(Socket.load.W_interpolation=ifelse((i==7 & (j==1 | j==2)), 
+             ifelse(System.socket.load.W_interpolation<0, 0,
+                    System.socket.load.W_interpolation),
+             ifelse(timeUse>=7 & timeUse<=18,
+                    System.socket.load.W_interpolation-systemLoad_day[[i]][j],
+                    System.socket.load.W_interpolation-systemLoad_eve[[i]][j])),
+             Socket.load.W_original=ifelse((i==7 & (j==1 | j==2)),
+                ifelse(System.socket.load.W_original<0, 0,
+                       System.socket.load.W_original),
+               ifelse(timeUse>=7 & timeUse<=18,
+                  System.socket.load.W_original-systemLoad_day[[i]][j],
+                  System.socket.load.W_original-systemLoad_eve[[i]][j])))
+    df <- rbind(df, df_sub)
+  }
   
   # Calculate SoC of battery and apply upper and lower thresholds - 
   # discharge of up to 20% acceptable
@@ -301,8 +360,6 @@ plotTypical <- function(df) {
     geom_line(aes(y=E_load/1000.0, color="E_load",linetype="E_load")) + 
     geom_line(aes(y=E_p/1000.0, color="E_p",linetype="E_p")) +
     geom_line(aes(y=L_c/1000.0, color="L_c",linetype="L_c")) + 
-    geom_line(aes(y = SoC/400, color = "SoC",linetype="SoC")) + 
-    geom_line(aes(y = BM_SoC/400, color = "BM_SoC",linetype="BM_SoC")) +
     scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, name = "State of Charge (%)")) +
     labs(y="Energy (kWh)", x = "Time of day", colour="Parameter", linetype="Parameter") +
     scale_x_continuous(breaks=seq(0,24,by=2)) + theme(plot.title = element_text(size=10), legend.position = "bottom",
@@ -310,25 +367,32 @@ plotTypical <- function(df) {
                                                       legend.margin = margin(t=0,r=0,b=0,l=0),
                                                       axis.text = element_text(size=10), axis.title = element_text(size=12))
 }
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL1",]) + 
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL1",]) +
+  geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
   labs(title="Actual typical day profile for Nepal SL1 between July 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl1_imputed_interpolation.png"))
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL2",]) + 
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL2",]) +
+  geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
   labs(title="Actual typical day profile for Nepal SL2 between July 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl2_imputed_interpolation.png"))
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL3",]) + 
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL3",]) +
+  geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
   labs(title="Actual typical day profile for Nepal SL3 between July 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl3_imputed_interpolation.png"))
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL4",]) + 
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL4",]) +
+  geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
   labs(title="Actual typical day profile for Nepal SL4 between July 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl4_imputed_interpolation.png"))
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL5",]) + 
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL5",]) +
+  geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
   labs(title="Actual typical day profile for Nepal SL5 between July 2019 and Aug 2019")
 ggsave(here(plot_dir,"typical_day_sl5_imputed_interpolation.png"))
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL6",]) + 
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL6",]) +
+  geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
   labs(title="Actual typical day profile for Nepal SL6 between July 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl6_imputed_interpolation.png"))
-plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL7",]) + 
+plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL7",]) +
+  geom_line(aes(y = SoC/400, color = "SoC",linetype="SoC")) +
   labs(title="Actual typical day profile for Nepal SL7 between July 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl7_imputed_interpolation.png"))
 #******************************************************************************************#
@@ -379,6 +443,8 @@ system_monthly <- system_monthly %>%
   mutate(value=ifelse(id=="Battery.Monitor.State.of.charge.._interpolation" |
                       id=="Battery.Monitor.State.of.charge.._original" |
                       id=="State.of.Charge.W_interpolation", value, value/1000.0))
+# Consider absolute values for all variables
+system_monthly <- system_monthly %>% mutate(value=abs(value))
 system_monthly <- spread(system_monthly, id, value)
 system_monthly <- system_monthly[order(system_monthly$streetlight, system_monthly$month2),]
 write.csv(system_monthly, file=here(filepath,"monthly_avg_correctedData.csv"), row.names=FALSE)
