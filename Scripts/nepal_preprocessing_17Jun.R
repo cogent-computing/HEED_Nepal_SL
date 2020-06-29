@@ -2,7 +2,7 @@
 # This is the script for pre-processing data from all Nepal SL to convert to hourly data   #
 # analyse yield of hourly data and explore imputation techniques                           #
 # Author: K Bhargava                                                                       #
-# Last updated on: 22nd June 2020                                                          #
+# Last updated on: 27th June 2020                                                          #
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -26,15 +26,17 @@ plot_dir <- "Plots/Paper 7"
 
 #******************************************************************************************#
 # Read SL and weather data between July 2019 to March 2020
-sl_nepal <- read_csv(here(filepath,"sl_all_raw.csv"), col_names = TRUE)
+sl_nepal <- read_csv(here(filepath,"sl_all_raw_jul19_mar20.csv"), col_names = TRUE)
 sl_nepal <- as.data.frame(sl_nepal[,seq_along(sl_nepal)])
-sl_nepal <- sl_nepal %>% mutate(month=as.character(month(timestamp, label=TRUE, abbr=TRUE)), 
-                            timeUse = hour(timestamp),Charged.energy.W = ifelse(System.overview.Battery.Power.W<0, 0, 
-                                                                                System.overview.Battery.Power.W),
+sl_nepal <- sl_nepal %>% mutate(date=date(timestamp),
+                                month=as.character(month(timestamp, label=TRUE, abbr=TRUE)), 
+                            timeUse = hour(timestamp),
+                            Charged.energy.W = ifelse(System.overview.Battery.Power.W<0, 0, 
+                                                 System.overview.Battery.Power.W),
                             Discharged.energy.W = ifelse(System.overview.Battery.Power.W>0,0,
                                                          System.overview.Battery.Power.W)) 
 
-weather_data <- read_csv(here(filepath,"weather_hourly_jul_mar.csv"), col_names = TRUE)
+weather_data <- read_csv(here(filepath,"weather_hourly_jul19_mar20.csv"), col_names = TRUE)
 weather_data <- weather_data[,1:8]
 weather_data <- gather(weather_data, "streetlight", "Potential_PV_power_W", 2:8)
 weather_data$date <- date(weather_data$timestamp)
@@ -52,23 +54,30 @@ sl_qual <- sl_qual %>% mutate(count2 = ifelse(count<100, count, 100),
                               yield=ifelse(date>="2019-10-15" & timeUse>=12, count*100/60, count*100/4),
                               yield2 =ifelse(yield>100, 100, yield))
 pal <- wes_palette("Zissou1", 100, type = "continuous")
-ggplot(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[1:4] & sl_qual$id=="System.overview.Battery.Power.W",],
-       aes(date, timeUse)) + facet_wrap(~streetlight, nrow=2) + geom_tile(aes(fill = yield2)) + 
-  scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + scale_y_continuous(breaks=seq(0,24,by=2)) + 
-  xlab("X axis") + ylab("Y axis") + labs(title="Yield per hour for Nepal streetlights: 1 Jul'19 - 31 Mar'20", 
-                                         y="Time of day",x = "Day of study", fill="Yield (%)")
+ggplot(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[1:4] & 
+                 sl_qual$id=="System.overview.Battery.Power.W",],
+  aes(date, timeUse)) + facet_wrap(~streetlight, nrow=2) + geom_tile(aes(fill = yield2)) + 
+  scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + 
+  scale_y_continuous(breaks=seq(0,24,by=3)) + xlab("X axis") + ylab("Y axis") + 
+  labs(title="Yield per hour for Nepal streetlights: 1 Jul'19 - 31 Mar'20", y="Time of day",
+  x = "Day of study", fill="Yield (%)") + theme(plot.title = element_text(size=11), 
+      axis.text = element_text(size=10), axis.title = element_text(size=12))
 ggsave(here(plot_dir,"yield_hourly1.png"))
-ggplot(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[5:7] & sl_qual$id=="System.overview.Battery.Power.W",],
-       aes(date, timeUse)) + facet_wrap(~streetlight, nrow=2) + geom_tile(aes(fill = yield2)) + 
-  scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + scale_y_continuous(breaks=seq(0,24,by=2)) + 
-  xlab("X axis") + ylab("Y axis") + labs(title="Yield per hour for Nepal streetlights: 1 Jul'19 - 31 Mar'20", 
-                                         y="Time of day",x = "Day of study", fill="Yield (%)")
+ggplot(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[5:7] & 
+                  sl_qual$id=="System.overview.Battery.Power.W",],
+        aes(date, timeUse)) + facet_wrap(~streetlight, nrow=2) + geom_tile(aes(fill = yield2)) + 
+  scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + 
+  scale_y_continuous(breaks=seq(0,24,by=3)) + xlab("X axis") + ylab("Y axis") + 
+  labs(title="Yield per hour for Nepal streetlights: 1 Jul'19 - 31 Mar'20", y="Time of day",
+       x = "Day of study", fill="Yield (%)") + theme(plot.title = element_text(size=11), 
+                                                     axis.text = element_text(size=10), axis.title = element_text(size=12))
 ggsave(here(plot_dir,"yield_hourly2.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#
 # Convert data into hourly mean, fill in NA for all days missing, add Potential PV data and save
-system_hourly <- sl_all %>% group_by(streetlight, date, timeUse, id) %>% summarise(value = mean(value, na.rm = TRUE))
+system_hourly <- sl_all %>% group_by(streetlight, date, timeUse, id) %>% 
+  summarise(value = mean(value, na.rm = TRUE))
 system_hourly <- as.data.frame(system_hourly)
 system_hourly <- spread(system_hourly, id, value)
 system_hourly[is.na(system_hourly)] <- NA
