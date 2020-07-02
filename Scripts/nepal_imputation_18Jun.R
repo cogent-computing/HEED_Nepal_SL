@@ -58,7 +58,7 @@ for(k in seq_along(variables)) {
     }
     colnames(df) <- c(colnames(df)[1:3],paste(variables[k],"original",sep="_"),
                       paste(variables[k],methodImpute,sep="_"))
-    df <- gather(df, "variable","value",4:6)
+    df <- gather(df, "variable","value",4:5)
     
     # Bind data for all SL
     na_seadec_imputedData <- rbind(na_seadec_imputedData, df)
