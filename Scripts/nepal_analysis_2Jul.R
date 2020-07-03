@@ -19,12 +19,16 @@ plot_dir <- "Plots/Paper 7"
 #******************************************************************************************#
 
 #******************************************************************************************#
-# Read corrected SL data
+# Read corrected SL data and energy excess data
 na_seadec_correctedData <- read.csv(here(filepath,"na_seadec_correctedData.csv"), header=TRUE, stringsAsFactors=FALSE)
 na_seadec_correctedData <- na_seadec_correctedData %>% 
   mutate(date=as.Date(date),timestamp=as.POSIXct(timestamp, tz="GMT", origin="1970-01-01"),
          month2=factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                        labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
+energy_excess <- read.csv(here(filepath,"Excess elc at sockets Nepal 2.csv"), header=TRUE, stringsAsFactors=FALSE) 
+energy_excess <- energy_excess %>% 
+  mutate(Time=as.POSIXct(Time, tz="GMT", origin="1970-01-01", format="%d/%m/%Y %H:%M"),
+         timeUse = hour(Time))
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -162,6 +166,38 @@ plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL7" &
             na_seadec_correctedData$date>="2019-10-01",]) + 
   labs(title="Hourly socket consumption at Nepal SL7 between July 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl7_imputed.png"))
+
+# Plot across all select SL - except SL5 and SL7
+plotACLoad(na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" | 
+                                     na_seadec_correctedData$streetlight=="SL7"),]) + 
+  theme(plot.title = element_text(size=9)) +
+  labs(title="Hourly socket consumption at Nepal SL1-4 and SL6 between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"acLoad_sl_all_nepal.png"))
+
+# Create an avg SL for each date and hour considering SL1-4 and SL6
+avgSL <- na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" | 
+                                     na_seadec_correctedData$streetlight=="SL7"),] %>% 
+  group_by(date, timeUse) %>%
+  summarise(Actual.Socket.load.W_interpolation=mean(Actual.Socket.load.W_interpolation))
+avgSL <- as.data.frame(avgSL)
+plotACLoad(avgSL) + theme(plot.title = element_text(size=9)) +
+  labs(title="Hourly socket consumption at average Nepal SL between July 2019 and Mar 2020")
+ggsave(here(plot_dir,"acLoad_avg_sl_nepal.png"))
+
+# Avg socket load value across SL1-4 and SL6 against timeUse for all months
+avgLoad <- na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" | 
+                                       na_seadec_correctedData$streetlight=="SL7"),] %>% 
+  group_by(timeUse) %>% 
+  summarise(Socket.load.kW = mean(Actual.Socket.load.W_interpolation)/1000.0)
+write.csv(avgLoad, file=here(filepath,"avg_hourly_socketLoad_nepal.csv"), row.names=FALSE)
+
+# PLot energy excess data
+ggplot(energy_excess, aes(as.factor(timeUse), Excess.Electricity.at.Socket.kW)) +
+  geom_boxplot() + labs(x="Time of day", y="Excess electricity (kW)",
+    title="Excess electricity at Nepal streetlight sockets between July 2019 and Mar 2020") +
+  theme(plot.title = element_text(size=9)) + 
+  scale_y_continuous(breaks=seq(0,0.25,0.05))
+ggsave(here(plot_dir,"excess_energy_nepal_sl.png"))
 #*****************************************************************************************#
 
 #******************************************************************************************#

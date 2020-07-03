@@ -88,18 +88,27 @@ na_seadec_interpolation <- na_seadec_interpolation %>%
                          labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
 
 # Compute statistics for original and imputed data
-na_seadec_sub <- gather(na_seadec_interpolation, "id", "value", c(4:14))
+na_seadec_sub <- na_seadec_interpolation[,-c(2:3,12:17)]
+colnames(na_seadec_sub) <- c(colnames(na_seadec_sub)[1], "Battery.Monitor.State.of.charge.%_imputed",
+                             "Battery.Monitor.State.of.charge.%_original",     
+                             "Solar.Charger.Battery.power.W_imputed", "Solar.Charger.Battery.power.W_original",         
+                             "Solar.Charger.PV.power.W_imputed",         
+                             "Solar.Charger.PV.power.W_original",              
+                             "System.Battery.power.W_imputed",  
+                             "System.Battery.power.W_original")
+na_seadec_sub <- gather(na_seadec_sub, "id", "value", c(2:9))
 stats_na_seadec_sub <- na_seadec_sub %>% group_by(streetlight, id) %>%
   summarise(mean = mean(value, na.rm=TRUE), median = median(value, na.rm=TRUE), sd = sd(value, na.rm=TRUE),
             skew = skewness(value, na.rm=TRUE), kurt = kurtosis(value, na.rm=TRUE))
 stats_na_seadec_sub <- as.data.frame(stats_na_seadec_sub)  
 stats_na_seadec_sub <- stats_na_seadec_sub[complete.cases(stats_na_seadec_sub),]
+write.csv(stats_na_seadec_sub, file=here(filepath,"stats_na_seadec.csv"), row.names=FALSE)
+
 stats_na_seadec_sub <- gather(stats_na_seadec_sub, "variable", "value", 3:7)
 ggplot(stats_na_seadec_sub[stats_na_seadec_sub$streetlight=="SL1" & 
                              stats_na_seadec_sub$variable=="sd",], 
        aes(id, abs(value))) + geom_bar(stat="identity", width=.3, position = "dodge")  + 
   theme(axis.text.x = element_text(angle=90))
-write.csv(stats_na_seadec_sub, file=here(filepath,"stats_na_seadec.csv"), row.names=FALSE)
 
 # Plot data for all variables
 ggplot(na_seadec_sub[na_seadec_sub$id==unique(na_seadec_sub$id)[c(2,1)],], 
