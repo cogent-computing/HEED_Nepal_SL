@@ -22,7 +22,7 @@ library(here)
 # Define macros - theme for all plots
 THEME <- theme(plot.title = element_text(size=12), legend.position = "bottom",
                legend.key.size = unit(0.5, "cm"), 
-               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major = element_blank(), 
+               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major.y = element_line(colour="grey") , 
                panel.grid.minor = element_blank(), panel.background = element_blank(), 
                axis.line = element_line(colour = "black"), axis.text = element_text(size=12), 
                axis.title = element_text(size=12)) 
@@ -71,18 +71,18 @@ plotYield <- function(df) {
     labs(y="Time of day", x = "Day of study", fill="Yield (%)") + THEME + 
     guides(fill = guide_colorbar(barwidth = 15, barheight = 0.5))
 }
+# labs(title="Yield per hour for Nepal SL1-4: 1 Jul 2019 - 31 Mar 2020")
 plotYield(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[1:4] & 
-                    sl_qual$id=="System.overview.Battery.Power.W",]) + 
-  labs(title="Yield per hour for Nepal SL1-4: 1 Jul 2019 - 31 Mar 2020")
+                    sl_qual$id=="System.overview.Battery.Power.W",]) 
 ggsave(here(plot_dir,"yield_hourly1.png"))
 
-plotYield(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[1:4] & 
-                    sl_qual$id=="System.overview.Battery.Power.W",]) + 
-  labs(title="Yield per hour for Nepal SL5-7: 1 Jul 2019 - 31 Mar 2020")
+# labs(title="Yield per hour for Nepal SL5-7: 1 Jul 2019 - 31 Mar 2020")
+plotYield(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[5:7] & 
+                    sl_qual$id=="System.overview.Battery.Power.W",]) 
 ggsave(here(plot_dir,"yield_hourly2.png"))
 
-plotYield(sl_qual[sl_qual$id=="System.overview.Battery.Power.W",]) + 
-  labs(title="Yield per hour for Nepal streetlights: 1 Jul 2019 - 31 Mar 2020")
+# labs(title="Yield per hour for Nepal streetlights: 1 Jul 2019 - 31 Mar 2020")
+plotYield(sl_qual[sl_qual$id=="System.overview.Battery.Power.W",]) 
 ggsave(here(plot_dir,"yield_hourly_all.png"))
 #******************************************************************************************#
 
