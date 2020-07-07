@@ -1,7 +1,7 @@
 #******************************************************************************************#
 # This is the script for analysing Nepal SL data                                           #
 # Author: K Bhargava                                                                       #
-# Last updated on: 2nd July 2020                                                           #
+# Last updated on: 6th July 2020                                                           #
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -10,6 +10,16 @@ library(tidyverse)
 library(lubridate)
 library(wesanderson)
 library(here)
+#******************************************************************************************#
+
+#******************************************************************************************#
+# Define macros - theme for all plots
+THEME <- theme(plot.title = element_text(size=12), legend.position = "bottom",
+               legend.key.size = unit(0.5, "cm"), 
+               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major = element_blank(), 
+               panel.grid.minor = element_blank(), panel.background = element_blank(), 
+               axis.line = element_line(colour = "black"), axis.text = element_text(size=12), 
+               axis.title = element_text(size=12)) 
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -101,35 +111,32 @@ plotTypical <- function(df) {
     geom_line(aes(y=E_p/1000.0, color="E_p",linetype="E_p")) +
     geom_line(aes(y=L_c/1000.0, color="L_c",linetype="L_c")) + 
     scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, name = "State of Charge (%)")) +
-    labs(y="Energy (kWh)", x = "Time of day", colour="Parameter", linetype="Parameter") +
-    scale_x_continuous(breaks=seq(0,24,by=2)) + theme(plot.title = element_text(size=10), legend.position = "bottom",
-                                                      legend.box = "horizontal",  legend.key.size = unit(0.6, "cm"), 
-                                                      legend.margin = margin(t=0,r=0,b=0,l=0),
-                                                      axis.text = element_text(size=10), axis.title = element_text(size=12))
+    labs(y="Power (kW)", x = "Time of day", colour="Parameter", linetype="Parameter") +
+    scale_x_continuous(breaks=seq(0,24,by=2)) + THEME
 }
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL1",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
-  labs(title="Actual typical day profile for Nepal SL1 between July 2019 and Mar 2020")
+  labs(title="Actual typical day profile for Nepal SL1 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl1_imputed_interpolation.png"))
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL2",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
-  labs(title="Actual typical day profile for Nepal SL2 between July 2019 and Mar 2020")
+  labs(title="Actual typical day profile for Nepal SL2 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl2_imputed_interpolation.png"))
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL3",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
-  labs(title="Actual typical day profile for Nepal SL3 between July 2019 and Mar 2020")
+  labs(title="Actual typical day profile for Nepal SL3 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl3_imputed_interpolation.png"))
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL4",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
-  labs(title="Actual typical day profile for Nepal SL4 between July 2019 and Mar 2020")
+  labs(title="Actual typical day profile for Nepal SL4 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl4_imputed_interpolation.png"))
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL5",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
-  labs(title="Actual typical day profile for Nepal SL5 between July 2019 and Aug 2019")
+  labs(title="Actual typical day profile for Nepal SL5 between Jul 2019 and Aug 2019")
 ggsave(here(plot_dir,"typical_day_sl5_imputed_interpolation.png"))
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL6",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) +
-  labs(title="Actual typical day profile for Nepal SL6 between July 2019 and Mar 2020")
+  labs(title="Actual typical day profile for Nepal SL6 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"typical_day_sl6_imputed_interpolation.png"))
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL7",]) +
   geom_line(aes(y = SoC/400, color = "SoC",linetype="SoC")) +
@@ -141,37 +148,35 @@ ggsave(here(plot_dir,"typical_day_sl7_imputed_interpolation.png"))
 # Box plots for Socket consumption
 plotACLoad <- function(df) {
   ggplot(df, aes(as.factor(timeUse), Actual.Socket.load.W_interpolation/1000.0)) + 
-    geom_boxplot() + labs(x="Time of day", y="Socket consumption (kWh)") +
-    theme(plot.title = element_text(size=10))
+    geom_boxplot() + labs(x="Time of day", y="Socket consumption (kW)") + THEME
 }
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL1",]) + 
-  labs(title="Hourly socket consumption at Nepal SL1 between July 2019 and Mar 2020")
+  labs(title="Hourly socket consumption at Nepal SL1 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl1_imputed.png"))
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL2",]) + 
-  labs(title="Hourly socket consumption at Nepal SL2 between July 2019 and Mar 2020")
+  labs(title="Hourly socket consumption at Nepal SL2 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl2_imputed.png"))
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL3",]) + 
-  labs(title="Hourly socket consumption at Nepal SL3 between July 2019 and Mar 2020")
+  labs(title="Hourly socket consumption at Nepal SL3 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl3_imputed.png"))
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL4",]) + 
-  labs(title="Hourly socket consumption at Nepal SL4 between July 2019 and Mar 2020")
+  labs(title="Hourly socket consumption at Nepal SL4 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl4_imputed.png"))
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL5",]) + 
-  labs(title="Hourly socket consumption at Nepal SL5 between July 2019 and Aug 2019")
+  labs(title="Hourly socket consumption at Nepal SL5 between Jul 2019 and Aug 2019")
 ggsave(here(plot_dir,"acLoad_sl5_imputed.png"))
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL6",]) + 
-  labs(title="Hourly socket consumption at Nepal SL6 between July 2019 and Mar 2020")
+  labs(title="Hourly socket consumption at Nepal SL6 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl6_imputed.png"))
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL7" & 
             na_seadec_correctedData$date>="2019-10-01",]) + 
-  labs(title="Hourly socket consumption at Nepal SL7 between July 2019 and Mar 2020")
+  labs(title="Hourly socket consumption at Nepal SL7 between Oct 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl7_imputed.png"))
 
 # Plot across all select SL - except SL5 and SL7
 plotACLoad(na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" | 
-                                     na_seadec_correctedData$streetlight=="SL7"),]) + 
-  theme(plot.title = element_text(size=9)) +
-  labs(title="Hourly socket consumption at Nepal SL1-4 and SL6 between July 2019 and Mar 2020")
+                                     na_seadec_correctedData$streetlight=="SL7"),]) + THEME +
+  labs(title="Hourly socket consumption at Nepal SL1-4 and SL6 between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_sl_all_nepal.png"))
 
 # Create an avg SL for each date and hour considering SL1-4 and SL6
@@ -180,8 +185,8 @@ avgSL <- na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" |
   group_by(date, timeUse) %>%
   summarise(Actual.Socket.load.W_interpolation=mean(Actual.Socket.load.W_interpolation))
 avgSL <- as.data.frame(avgSL)
-plotACLoad(avgSL) + theme(plot.title = element_text(size=9)) +
-  labs(title="Hourly socket consumption at average Nepal SL between July 2019 and Mar 2020")
+plotACLoad(avgSL) + THEME +
+  labs(title="Hourly socket consumption at average Nepal SL between Jul 2019 and Mar 2020")
 ggsave(here(plot_dir,"acLoad_avg_sl_nepal.png"))
 
 # Avg socket load value across SL1-4 and SL6 against timeUse for all months
@@ -194,9 +199,8 @@ write.csv(avgLoad, file=here(filepath,"avg_hourly_socketLoad_nepal.csv"), row.na
 # PLot energy excess data
 ggplot(energy_excess, aes(as.factor(timeUse), Excess.Electricity.at.Socket.kW)) +
   geom_boxplot() + labs(x="Time of day", y="Excess electricity (kW)",
-    title="Excess electricity at Nepal streetlight sockets between July 2019 and Mar 2020") +
-  theme(plot.title = element_text(size=9)) + 
-  scale_y_continuous(breaks=seq(0,0.25,0.05))
+    title="Excess electricity at Nepal streetlight sockets between Jul 2019 and Mar 2020") +
+  THEME + scale_y_continuous(breaks=seq(0,0.25,0.05))
 ggsave(here(plot_dir,"excess_energy_nepal_sl.png"))
 #*****************************************************************************************#
 
