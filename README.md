@@ -4,4 +4,4 @@
 # nepal_preprocessing_17Jun.R - to preprocess data and test different imputation techniques
 # nepal_imputation_18Jun.R - to impute missing data and correct anomalies using rule based approach
 # nepal_loadCalc_17Jun.R - to test which method works for socket load calculation
-# nepal_analysis_2Jun.R - to analyse and plot the corrected data
+# nepal_analysis_2Jul.R - to analyse and plot the corrected data
