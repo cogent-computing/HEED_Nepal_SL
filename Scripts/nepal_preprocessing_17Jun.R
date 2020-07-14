@@ -15,17 +15,20 @@ library(mgcv) # for gam model-based imputation
 library(xts)
 library(MLmetrics) #for RMSE
 library(timeDate) #for skewness
+library(extrafont)
 library(here)
 #******************************************************************************************#
 
 #******************************************************************************************#
 # Define macros - theme for all plots
-THEME <- theme(plot.title = element_text(size=12), legend.position = "bottom",
-               legend.key.size = unit(0.5, "cm"), 
-               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major.y = element_line(colour="grey") , 
+font_import()
+THEME <- theme(legend.position = "bottom", legend.text=element_text(size=10, family="Times New Roman"),
+               legend.key.size = unit(0.5, "cm"),legend.margin = margin(t=0,r=0,b=0,l=0), 
+               panel.grid.major.y = element_line(colour="grey"), 
                panel.grid.minor = element_blank(), panel.background = element_blank(), 
-               axis.line = element_line(colour = "black"), axis.text = element_text(size=12), 
-               axis.title = element_text(size=12)) 
+               axis.line = element_line(colour = "black"), 
+               axis.text = element_text(size=9, family="Times New Roman"),
+               axis.title = element_text(size=10, family="Times New Roman")) 
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -51,7 +54,7 @@ weather_data <- weather_data[,1:8]
 weather_data <- gather(weather_data, "streetlight", "Potential_PV_power_W", 2:8)
 weather_data$date <- date(weather_data$timestamp)
 weather_data$timeUse <- hour(weather_data$timestamp)
-weather_data <- weather_data[,-1] # Remove timestamp
+weather_data <- weather_data[,-1] # Remove time stamp
 weather_data <- weather_data[,c(1,3,4,2)] # Rearrange columns
 #******************************************************************************************#
 
@@ -69,21 +72,21 @@ plotYield <- function(df) {
     scale_fill_gradientn(colours = pal, breaks=c(0,25,50,75,100)) + 
     scale_y_continuous(breaks=seq(0,24,by=4)) + xlab("X axis") + ylab("Y axis") + 
     labs(y="Time of day", x = "Day of study", fill="Yield (%)") + THEME + 
-    guides(fill = guide_colorbar(barwidth = 15, barheight = 0.5))
+    guides(fill = guide_colorbar(barwidth = 8, barheight = 0.5))
 }
 # labs(title="Yield per hour for Nepal SL1-4: 1 Jul 2019 - 31 Mar 2020")
 plotYield(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[1:4] & 
                     sl_qual$id=="System.overview.Battery.Power.W",]) 
-ggsave(here(plot_dir,"yield_hourly1.png"))
+ggsave(here(plot_dir,"yield_hourly1.pdf"), width = 8, height = 8, units = "cm")
 
 # labs(title="Yield per hour for Nepal SL5-7: 1 Jul 2019 - 31 Mar 2020")
 plotYield(sl_qual[sl_qual$streetlight%in%unique(sl_qual$streetlight)[5:7] & 
                     sl_qual$id=="System.overview.Battery.Power.W",]) 
-ggsave(here(plot_dir,"yield_hourly2.png"))
+ggsave(here(plot_dir,"yield_hourly2.pdf"), width = 8, height = 8, units = "cm")
 
 # labs(title="Yield per hour for Nepal streetlights: 1 Jul 2019 - 31 Mar 2020")
 plotYield(sl_qual[sl_qual$id=="System.overview.Battery.Power.W",]) 
-ggsave(here(plot_dir,"yield_hourly_all.png"))
+ggsave(here(plot_dir,"yield_hourly_all.pdf"), width = 8, height = 8, units = "cm")
 #******************************************************************************************#
 
 #******************************************************************************************#

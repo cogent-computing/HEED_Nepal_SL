@@ -9,17 +9,20 @@
 library(tidyverse)
 library(lubridate)
 library(wesanderson)
+library(extrafont)
 library(here)
 #******************************************************************************************#
 
 #******************************************************************************************#
-# Define macros - theme for all plots
-THEME <- theme(plot.title = element_text(size=12), legend.position = "bottom",
-               legend.key.size = unit(0.5, "cm"), 
-               legend.margin = margin(t=0,r=0,b=0,l=0), panel.grid.major.y = element_line(colour="grey") , 
+# Define macros - theme for all plots - ADD times new roman
+font_import()
+THEME <- theme(legend.position = "bottom", legend.text=element_text(size=10, family="Times New Roman"),
+               legend.key.size = unit(0.5, "cm"),legend.margin = margin(t=0,r=0,b=0,l=0), 
+               panel.grid.major.y = element_line(colour="grey"), 
                panel.grid.minor = element_blank(), panel.background = element_blank(), 
-               axis.line = element_line(colour = "black"), axis.text = element_text(size=12), 
-               axis.title = element_text(size=12)) 
+               axis.line = element_line(colour = "black"), 
+               axis.text = element_text(size=9, family="Times New Roman"),
+               axis.title = element_text(size=10, family="Times New Roman")) 
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -49,6 +52,7 @@ onHours <- system_sub_original %>% group_by(streetlight, month2, date) %>%
   summarise(hours=length(Solar.Charger.PV.power.W_original))
 onHours <- as.data.frame(onHours[onHours$hours==24,])
 full_days <- onHours %>% group_by(streetlight, month2) %>% summarise(days=length(date)) 
+full_days <- as.data.frame(full_days)
 write.csv(full_days, file=here(filepath,"full_days_all_data_nepal.csv"), row.names=FALSE)
 #******************************************************************************************#
 
@@ -111,61 +115,62 @@ plotTypical <- function(df) {
     geom_line(aes(y=E_p/1000.0, color="E_p",linetype="E_p")) +
     geom_line(aes(y=L_c/1000.0, color="L_c",linetype="L_c")) + 
     scale_y_continuous(breaks= seq(0,0.25,0.05), sec.axis = sec_axis(~.*400, name = "State of Charge (%)")) +
-    labs(y="Power (kW)", x = "Time of day", colour="Parameter", linetype="Parameter") +
+    labs(y="Power (kW)", x = "Time of day", colour="", linetype="") +
     scale_x_continuous(breaks=seq(0,24,by=2)) + THEME
 }
 # "Actual typical day profile for Nepal SL1 between Jul 2019 and Mar 2020"
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL1",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) 
-ggsave(here(plot_dir,"typical_day_sl1_imputed_interpolation.png"))
+ggsave(here(plot_dir,"typical_day_sl1_imputed_interpolation.pdf"), width = 8, height = 6, units = "cm")
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL2",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) 
-ggsave(here(plot_dir,"typical_day_sl2_imputed_interpolation.png"))
+ggsave(here(plot_dir,"typical_day_sl2_imputed_interpolation.pdf"), width = 8, height = 6, units = "cm")
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL3",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) 
-ggsave(here(plot_dir,"typical_day_sl3_imputed_interpolation.png"))
+ggsave(here(plot_dir,"typical_day_sl3_imputed_interpolation.pdf"), width = 8, height = 6, units = "cm")
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL4",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) 
-ggsave(here(plot_dir,"typical_day_sl4_imputed_interpolation.png"))
+ggsave(here(plot_dir,"typical_day_sl4_imputed_interpolation.pdf"), width = 8, height = 6, units = "cm")
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL5",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) 
-ggsave(here(plot_dir,"typical_day_sl5_imputed_interpolation.png"))
+ggsave(here(plot_dir,"typical_day_sl5_imputed_interpolation.pdf"), width = 8, height = 6, units = "cm")
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL6",]) +
   geom_line(aes(y = BM_SoC/400, color = "SoC",linetype="SoC")) 
-ggsave(here(plot_dir,"typical_day_sl6_imputed_interpolation.png"))
+ggsave(here(plot_dir,"typical_day_sl6_imputed_interpolation.pdf"), width = 8, height = 6, units = "cm")
 plotTypical(system_typical_interpolation[system_typical_interpolation$streetlight=="SL7",]) +
   geom_line(aes(y = SoC/400, color = "SoC",linetype="SoC")) 
-ggsave(here(plot_dir,"typical_day_sl7_imputed_interpolation.png"))
+ggsave(here(plot_dir,"typical_day_sl7_imputed_interpolation.pdf"), width = 8, height = 6, units = "cm")
 #******************************************************************************************#
 
 #*****************************************************************************************#
 # Box plots for Socket consumption
 plotACLoad <- function(df) {
   ggplot(df, aes(as.factor(timeUse), Actual.Socket.load.W_interpolation/1000.0)) + 
-    geom_boxplot() + labs(x="Time of day", y="Socket consumption (kW)") + THEME
+    geom_boxplot() + labs(x="Time of day", y="Socket consumption (kW)") + THEME + 
+    scale_x_discrete(breaks=seq(0,24,by=2))
 }
 # labs(title="Hourly socket consumption at Nepal SL1 between Jul 2019 and Mar 2020")
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL1",]) 
-ggsave(here(plot_dir,"acLoad_sl1_imputed.png"))
+ggsave(here(plot_dir,"acLoad_sl1_imputed.pdf"), width = 8, height = 6, units = "cm")
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL2",]) 
-ggsave(here(plot_dir,"acLoad_sl2_imputed.png"))
+ggsave(here(plot_dir,"acLoad_sl2_imputed.pdf"), width = 8, height = 6, units = "cm")
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL3",]) 
-ggsave(here(plot_dir,"acLoad_sl3_imputed.png"))
+ggsave(here(plot_dir,"acLoad_sl3_imputed.pdf"), width = 8, height = 6, units = "cm")
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL4",]) 
-ggsave(here(plot_dir,"acLoad_sl4_imputed.png"))
+ggsave(here(plot_dir,"acLoad_sl4_imputed.pdf"), width = 8, height = 6, units = "cm")
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL5",])
-ggsave(here(plot_dir,"acLoad_sl5_imputed.png"))
+ggsave(here(plot_dir,"acLoad_sl5_imputed.pdf"), width = 8, height = 6, units = "cm")
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL6",]) 
-ggsave(here(plot_dir,"acLoad_sl6_imputed.png"))
+ggsave(here(plot_dir,"acLoad_sl6_imputed.pdf"), width = 8, height = 6, units = "cm")
 plotACLoad(na_seadec_correctedData[na_seadec_correctedData$streetlight=="SL7" & 
             na_seadec_correctedData$date>="2019-10-01",]) 
-ggsave(here(plot_dir,"acLoad_sl7_imputed.png"))
+ggsave(here(plot_dir,"acLoad_sl7_imputed.pdf"), width = 8, height = 6, units = "cm")
 
 # Plot across all select SL - except SL5 and SL7
 # labs(title="Hourly socket consumption at Nepal SL1-4 and SL6 between Jul 2019 and Mar 2020")
 plotACLoad(na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" | 
                                      na_seadec_correctedData$streetlight=="SL7"),]) + THEME 
-ggsave(here(plot_dir,"acLoad_sl_all_nepal.png"))
+ggsave(here(plot_dir,"acLoad_sl_all_nepal.pdf"), width = 8, height = 6, units = "cm")
 
 # Create an avg SL for each date and hour considering SL1-4 and SL6
 avgSL <- na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" | 
@@ -175,7 +180,7 @@ avgSL <- na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" |
 avgSL <- as.data.frame(avgSL)
 # labs(title="Hourly socket consumption at average Nepal SL between Jul 2019 and Mar 2020")
 plotACLoad(avgSL) + THEME 
-ggsave(here(plot_dir,"acLoad_avg_sl_nepal.png"))
+ggsave(here(plot_dir,"acLoad_avg_sl_nepal.pdf"), width = 8, height = 6, units = "cm")
 
 # Avg socket load value across SL1-4 and SL6 against timeUse for all months
 avgLoad <- na_seadec_correctedData[!(na_seadec_correctedData$streetlight=="SL5" | 
@@ -188,8 +193,8 @@ write.csv(avgLoad, file=here(filepath,"avg_hourly_socketLoad_nepal.csv"), row.na
 # title="Excess electricity at Nepal streetlight sockets between Jul 2019 and Mar 2020"
 ggplot(energy_excess, aes(as.factor(timeUse), Excess.Electricity.at.Socket.kW)) +
   geom_boxplot() + labs(x="Time of day", y="Excess electricity (kW)") +
-  THEME + scale_y_continuous(breaks=seq(0,0.25,0.05))
-ggsave(here(plot_dir,"excess_energy_nepal_sl.png"))
+  THEME + scale_y_continuous(breaks=seq(0,0.25,0.05)) + scale_x_discrete(breaks=seq(0,24,by=2))
+ggsave(here(plot_dir,"excess_energy_nepal_sl.pdf"), width = 8, height = 6, units = "cm")
 #*****************************************************************************************#
 
 #******************************************************************************************#
