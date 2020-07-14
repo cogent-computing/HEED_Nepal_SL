@@ -5,3 +5,6 @@
 # nepal_imputation_18Jun.R - to impute missing data and correct anomalies using rule based approach
 # nepal_loadCalc_17Jun.R - to test which method works for socket load calculation
 # nepal_analysis_2Jul.R - to analyse and plot the corrected data
+
+#Raw data for the paper is shared on data portal.
+#Raw data:sl_all_raw_jul19_mar20.csv is split for each SL.
