@@ -21,7 +21,6 @@ library(here)
 
 #******************************************************************************************#
 # Define macros - theme for all plots
-font_import()
 THEME <- theme(legend.position = "bottom", legend.text=element_text(size=10, family="Times New Roman"),
                legend.key.size = unit(0.5, "cm"),legend.margin = margin(t=0,r=0,b=0,l=0), 
                panel.grid.major.y = element_line(colour="grey"), 
@@ -140,22 +139,7 @@ summary(system_hourly) # ~ 9K values missing for all variables
 system <- gather(system_hourly,"id","value",4:12)
 missingData <- system %>% group_by(streetlight, id) %>% summarise(missingPercent = sum(is.na(value))*100/length(value))  
 missingData <- spread(missingData, id, missingPercent)
-write.csv(missingData, file=here(filepath,"missing_sl_data.csv"), row.names=FALSE)
-
-# Calculate yield as % hours on during a day
-sl_on_hours <- system %>% group_by(streetlight, date, id) %>% summarise(yield = length(na.omit(value)) * 100.0 / 24.0 )
-sl_on_hours <- as.data.frame(sl_on_hours)
-
-pal <- wes_palette("Zissou1", 100, type = "continuous")
-ggplot(sl_on_hours[sl_on_hours$id=="System.overview.Battery.Power.W",], aes(date, streetlight)) + 
-  geom_tile(aes(fill = yield)) + scale_fill_gradientn(colours = pal) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Yield for Nepal SL hourly data: 1 Jul'19 - 19 Mar'20",y="Streetlight",x = "Day of study",fill="Yield")
-ggsave(here(plot_dir,"yield_all.png"))
-
-ggplot(sl_on_hours, aes(date, id)) + facet_wrap(~streetlight) +  geom_tile(aes(fill = yield)) +
-  scale_fill_gradientn(colours = pal) + xlab("X axis") + ylab("Y axis") +
-  labs(title="Yield for Nepal SL hourly data: 1 Jul'19 - 19 Mar'20", y="Variable",x ="Day of study",fill="Yield") 
-ggsave(here(plot_dir,"yield_sl_all.png"))
+#write.csv(missingData, file=here(filepath,"missing_sl_data.csv"), row.names=FALSE)
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -163,83 +147,6 @@ ggsave(here(plot_dir,"yield_sl_all.png"))
 system_hourly$na_count <- apply(system_hourly, 1, function(x) sum(is.na(x)))
 # How many have 1 or more missing variables
 sum(system_hourly$na_count>0) #9215*100/44184 = 20% rows
-#******************************************************************************************#
-
-#******************************************************************************************#
-# Get days for which more than 50% data is missing i.e. yield is less than 50%
-sl_all_50 <- sl_on_hours[sl_on_hours$id=="System.overview.Battery.Power.W" & sl_on_hours$yield<50,] 
-sl_all_50 <- sl_all_50 %>% mutate(month = as.character(month(date, label=TRUE, abbr=TRUE)))
-# Count the number of days per SL - Sl3: 83 days, SL5:206 days, SL6 and SL7:41days  - see if these need to be removed
-sl_all_50_count <- sl_all_50 %>% group_by(streetlight) %>% summarise(count=length(yield))
-# Count days with more than 50% data missing per month
-sl_all_50_monthly <- sl_all_50 %>% group_by(streetlight, month) %>% summarise(count=length(yield))
-
-# Get full days per month
-sl_all_100 <- sl_on_hours[sl_on_hours$id=="System.overview.Battery.Power.W" & sl_on_hours$yield==100,] 
-sl_all_100 <- sl_all_100 %>% mutate(month = as.character(month(date, label=TRUE, abbr=TRUE)))
-# Count full days per SL for each month
-sl_all_100_count <- sl_all_100 %>% group_by(streetlight,month) %>% summarise(count=length(yield))
-#******************************************************************************************#
-
-#******************************************************************************************#
-# Get typical hourly data and see how it varies over time
-system_typical <- system %>% group_by(streetlight, timeUse, id) %>% summarise(value = mean(value, na.rm=TRUE))
-system_typical <- as.data.frame(system_typical)
-system_typical <- spread(system_typical, id, value)
-
-# Plot typical values for each SL
-plotTypical <- function(df) {
-  ggplot(df, aes(x=timeUse)) + geom_line(aes(y=Charged.energy.W/1000.0, color="Charged.energy.W"),linetype=1) +
-    geom_line(aes(y=abs(Discharged.energy.W)/1000.0, color="Discharged.energy.W"),linetype=2) + 
-    geom_line(aes(y=Solar.Charger.PV.power.W/1000.0, color="Solar.Charger.PV.power.W"),linetype=3) +
-    geom_line(aes(y=Potential_PV_power_W/1000.0, color="Potential_PV_power_W"),linetype=4) +
-    labs(y="Energy (kWh)", x = "Time of day", colour="Parameter") +
-    scale_x_continuous(breaks=seq(0,24,by=2)) + theme(plot.title = element_text(size=10), legend.position = "bottom",
-    legend.box = "horizontal",  legend.key.size = unit(0.5, "cm")) +
-    scale_linetype_discrete(labels=c("SoC","Charged energy","Discharged energy","Potential PV power","Actual PV power"))+
-    scale_color_discrete(labels=c("SoC","Charged energy","Discharged energy","Potential PV power","Actual PV power"))
-}
-plotTypical(system_typical[system_typical$streetlight=="SL1",]) + 
-  geom_line(aes(y = Battery.Monitor.State.of.charge../400, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
-  scale_y_continuous(sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL1 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
-ggsave(here(plot_dir,"typical_day_sl1.png"))
-
-plotTypical(system_typical[system_typical$streetlight=="SL2",]) + 
-  geom_line(aes(y = Battery.Monitor.State.of.charge../400, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
-  scale_y_continuous(sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL2 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
-ggsave(here(plot_dir,"typical_day_sl2.png"))
-
-plotTypical(system_typical[system_typical$streetlight=="SL3",]) + 
-  geom_line(aes(y = Battery.Monitor.State.of.charge../455, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
-  scale_y_continuous(sec.axis = sec_axis(~.*455, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL3 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
-ggsave(here(plot_dir,"typical_day_sl3.png"))
-
-plotTypical(system_typical[system_typical$streetlight=="SL4",]) + 
-  geom_line(aes(y = Battery.Monitor.State.of.charge../400, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
-  scale_y_continuous(sec.axis = sec_axis(~.*400, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL4 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
-ggsave(here(plot_dir,"typical_day_sl4.png"))
-
-plotTypical(system_typical[system_typical$streetlight=="SL5",]) + 
-  geom_line(aes(y = Battery.Monitor.State.of.charge../500, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
-  scale_y_continuous(sec.axis = sec_axis(~.*500, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL5 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
-ggsave(here(plot_dir,"typical_day_sl5.png"))
-
-plotTypical(system_typical[system_typical$streetlight=="SL6",]) + 
-  geom_line(aes(y = Battery.Monitor.State.of.charge../500, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
-  scale_y_continuous(sec.axis = sec_axis(~.*500, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL6 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
-ggsave(here(plot_dir,"typical_day_sl6.png"))
-
-plotTypical(system_typical[system_typical$streetlight=="SL7",]) + 
-  geom_line(aes(y = Battery.Monitor.State.of.charge../500, color = "Battery.Monitor.State.of.charge.."), linetype=5)+ 
-  scale_y_continuous(sec.axis = sec_axis(~.*500, name = "SoC (%)")) +
-  labs(title="Actual Nepal SL7 power profile for a typical day from 01 Jul'19 to 31 Mar'20")
-ggsave(here(plot_dir,"typical_day_sl7.png"))
 #******************************************************************************************#
 
 #******************************************************************************************#
@@ -453,4 +360,3 @@ ggplot(stats_na_seadec_sub[stats_na_seadec_sub$streetlight=="SL2" & stats_na_sea
 # Plot data to check mapping
 ggplot(na_seadec_sub[na_seadec_sub$streetlight=="SL1" & na_seadec_sub$id==unique(na_seadec_sub$id)[c(44,56)],], 
        aes(timestamp, value, color=id)) + geom_line() + theme(legend.position = "bottom")
-

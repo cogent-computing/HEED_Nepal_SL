@@ -73,9 +73,6 @@ na_seadec_imputedData <- na_seadec_imputedData %>%
          month2 = factor(month, levels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"),
                          labels = c("Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar")))
 write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_interpolated_data.csv"), row.names=FALSE)
-#write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_kalman_data.csv"), row.names=FALSE)
-#write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_kalman_data2.csv"), row.names=FALSE)
-#write.csv(na_seadec_imputedData, file=here(filepath,"na_seadec_imputed_data.csv"), row.names=FALSE)
 #******************************************************************************************#
 
 #******************************************************************************************#
